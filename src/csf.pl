@@ -79,13 +79,17 @@ $faststart = 0;
 &load_config;
 
 $urlget = ConfigServer::URLGet->new($config{URLGET}, "csf/$version", $config{URLPROXY});
-unless (defined $urlget) {
-	if (-e $config{CURL} or -e $config{WGET}) {
+unless (defined $urlget)
+{
+	if (-e $config{CURL} or -e $config{WGET})
+	{
 		$config{URLGET} = 3;
 		$urlget = ConfigServer::URLGet->new($config{URLGET}, "csf/$version", $config{URLPROXY});
 		print "*WARNING* URLGET set to use LWP but perl module is not installed, fallback to using CURL/WGET\n";
 		$warning .= "*WARNING* URLGET set to use LWP but perl module is not installed, fallback to using CURL/WGET\n";
-	} else {
+	}
+	else
+	{
 		$config{URLGET} = 1;
 		$urlget = ConfigServer::URLGet->new($config{URLGET}, "csf/$version", $config{URLPROXY});
 		print "*WARNING* URLGET set to use LWP but perl module is not installed, reverting to HTTP::Tiny\n";
@@ -104,10 +108,19 @@ if ((-e "/etc/csf/csf.disable") and ($input{command} ne "--enable") and ($input{
 	}
 	unless ($ok) {exit 1}
 }
-unless (-e $config{IPTABLES}) {&error(__LINE__,"$config{IPTABLES} $config{IPTABLESWAIT} (iptables binary location) does not exist!")}
-if ($config{IPV6} and !(-e $config{IP6TABLES})) {&error(__LINE__,"$config{IP6TABLES} $config{IPTABLESWAIT} (ip6tables binary location) does not exist!")}
 
-if ((-e "/etc/csf/csf.error") and ($input{command} ne "--startf") and ($input{command} ne "-sf") and ($input{command} ne "-q") and ($input{command} ne "--startq") and ($input{command} ne "--start") and ($input{command} ne "-s") and ($input{command} ne "--restart") and ($input{command} ne "-r") and ($input{command} ne "--enable") and ($input{command} ne "-e")) {
+unless (-e $config{IPTABLES})
+{
+	&error(__LINE__,"$config{IPTABLES} $config{IPTABLESWAIT} (iptables binary location) does not exist!")
+}
+
+if ($config{IPV6} and !(-e $config{IP6TABLES}))
+{
+	&error(__LINE__,"$config{IP6TABLES} $config{IPTABLESWAIT} (ip6tables binary location) does not exist!")
+}
+
+if ((-e "/etc/csf/csf.error") and ($input{command} ne "--startf") and ($input{command} ne "-sf") and ($input{command} ne "-q") and ($input{command} ne "--startq") and ($input{command} ne "--start") and ($input{command} ne "-s") and ($input{command} ne "--restart") and ($input{command} ne "-r") and ($input{command} ne "--enable") and ($input{command} ne "-e"))
+{
 	open (my $IN, "<", "/etc/csf/csf.error");
 	flock ($IN, LOCK_SH);
 	my $error = <$IN>;
@@ -117,7 +130,8 @@ if ((-e "/etc/csf/csf.error") and ($input{command} ne "--startf") and ($input{co
 	exit 1;
 }
 
-unless ($input{command} =~ /^--(stop|initdown|initup)$/) {
+unless ($input{command} =~ /^--(stop|initdown|initup)$/)
+{
 	if (-e "/var/lib/csf/csf.4.saved") {unlink "/var/lib/csf/csf.4.saved"}
 	if (-e "/var/lib/csf/csf.4.ipsets") {unlink "/var/lib/csf/csf.4.ipsets"}
 	if (-e "/var/lib/csf/csf.6.saved") {unlink "/var/lib/csf/csf.6.saved"}
@@ -1779,6 +1793,7 @@ sub dodeny {
 			push @ignore,@incfile;
 		}
 	}
+
 	foreach my $line (@ignore) {
         $line =~ s/$cleanreg//g;
 		if ($line eq "") {next}
@@ -1804,19 +1819,24 @@ sub dodeny {
 
 	my $denymatches;
 	my @deny = slurp("/etc/csf/csf.deny");
-	foreach my $line (@deny) {
-		if ($line =~ /^Include\s*(.*)$/) {
+	foreach my $line (@deny)
+	{
+		if ($line =~ /^Include\s*(.*)$/)
+		{
 			my @incfile = slurp($1);
 			push @deny,@incfile;
 		}
 	}
-	foreach my $line (@deny) {
+
+	foreach my $line (@deny)
+	{
         $line =~ s/$cleanreg//g;
 		if ($line eq "") {next}
 		if ($line =~ /^\s*\#|Include/) {next}
 		my ($ipd,$commentd) = split (/\s/,$line,2);
 		checkip(\$ipd);
-		if ($ipd eq $ip) {
+		if ($ipd eq $ip)
+		{
 			$denymatches = 1;
 			last;
 		}
@@ -2515,16 +2535,23 @@ sub doportfilters {
 			&syscommand(__LINE__,"$config{IP6TABLES} $config{IPTABLESWAIT} $verbose -A ALLOWOUT -m set --match-set chain_6_ALLOW dst -j $accept");
 		}
 	}
-	foreach my $line (@allow) {
+
+	foreach my $line (@allow)
+	{
         $line =~ s/$cleanreg//g;
 		if ($line eq "") {next}
 		if ($line =~ /^\s*\#|Include/) {next}
 		my ($ip,$comment) = split (/\s/,$line,2);
 		&linefilter($ip, "allow");
 	}
-	if ($config{FASTSTART}) {&faststart("csf.allow")}
 
-	foreach my $name (keys %blocklists) {
+	if ($config{FASTSTART})
+	{
+		&faststart("csf.allow")
+	}
+
+	foreach my $name (keys %blocklists)
+	{
 		my $drop = $config{DROP};
 		if ($config{DROP_IP_LOGGING}) {$drop = "BLOCKDROP"}
 		if ($config{LF_IPSET}) {
@@ -2535,16 +2562,21 @@ sub doportfilters {
 				&syscommand(__LINE__,"$config{IP6TABLES} $config{IPTABLESWAIT} $verbose -A $name -m set --match-set bl_6_$name src -j $drop");
 			}
 		}
-		if (-e "/var/lib/csf/csf.block.$name") {
-			if ($config{LF_IPSET}) {
+
+		if (-e "/var/lib/csf/csf.block.$name")
+		{
+			if ($config{LF_IPSET})
+			{
 				undef @ipset;
 				my @ipset6;
-				foreach my $line (slurp("/var/lib/csf/csf.block.$name")) {
+				foreach my $line (slurp("/var/lib/csf/csf.block.$name"))
+				{
 					$line =~ s/$cleanreg//g;
 					if ($line =~ /^(\s|\#|$)/) {next}
 					my ($ip,$comment) = split (/\s/,$line,2);
 					my $iptype = checkip(\$ip);
-					if ($iptype == 4) {
+					if ($iptype == 4)
+					{
 						push @ipset,"add -exist bl_$name $ip";
 					}
 					elsif ($iptype == 6 and $config{IPV6}) {
@@ -2552,11 +2584,14 @@ sub doportfilters {
 					}
 				}
 				&ipsetrestore("bl_$name");
-				if ($config{IPV6}) {
+				if ($config{IPV6})
+				{
 					@ipset = @ipset6;
 					&ipsetrestore("bl_6_$name");
 				}
-			} else {
+			}
+			else
+			{
 				if ($config{FASTSTART}) {$faststart = 1}
 				foreach my $line (slurp("/var/lib/csf/csf.block.$name")) {
 					$line =~ s/$cleanreg//g;
@@ -2579,14 +2614,18 @@ sub doportfilters {
 				&syscommand(__LINE__,"$config{IPTABLES} $config{IPTABLESWAIT} $verbose -I BOGON -i $device -j RETURN");
 			}
 		}
-		if ($cxsreputation and $name =~ /^CXS_/ and $name ne "CXS_ALL" and $cxsports{$name} ne "") {
+		if ($cxsreputation and $name =~ /^CXS_/ and $name ne "CXS_ALL" and $cxsports{$name} ne "")
+		{
 			&syscommand(__LINE__,"$config{IPTABLES} $config{IPTABLESWAIT} $verbose -A LOCALINPUT -p tcp -m multiport --dport $cxsports{$name} $ethdevin -j $name");
 			if ($config{IPV6}) {
 				&syscommand(__LINE__,"$config{IP6TABLES} $config{IPTABLESWAIT} $verbose -A LOCALINPUT -p tcp -m multiport --dport $cxsports{$name} $ethdevin -j $name");
 			}
-		} else {
+		}
+		else
+		{
 			&syscommand(__LINE__,"$config{IPTABLES} $config{IPTABLESWAIT} $verbose -A LOCALINPUT $ethdevin -j $name");
-			if ($config{IPV6}) {
+			if ($config{IPV6})
+			{
 				&syscommand(__LINE__,"$config{IP6TABLES} $config{IPTABLESWAIT} $verbose -A LOCALINPUT $ethdevin -j $name");
 			}
 		}
