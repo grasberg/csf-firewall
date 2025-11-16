@@ -10,7 +10,7 @@
 #                       Copyright (C) 2006-2025 Jonathan Michaelson
 #                       Copyright (C) 2006-2025 Way to the Web Ltd.
 #   @license            GPLv3
-#   @updated            10.21.2025
+#   @updated            11.16.2025
 #   
 #   This program is free software; you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -178,41 +178,109 @@ elsif ($input{command} eq "--trace") {&dotrace}
 elsif (($input{command} eq "--insiders") or ($input{command} eq "-in")) {&doinsiders}
 else {&dohelp}
 
-if ($config{TESTING}) {print "*WARNING* TESTING mode is enabled - do not forget to disable it in the configuration\n"}
+# #
+#	Warning › TESTING (Enabled)
+#	
+#	End-user should not have testing mode enabled; throw warning.
+# #
 
-if ($config{AUTO_UPDATES}) {
+if ($config{TESTING})
+{
+	print "*WARNING* TESTING mode is enabled - do not forget to disable it in the configuration\n"
+}
+
+if ($config{AUTO_UPDATES})
+{
 	unless (-e "/etc/cron.d/csf_update") {&autoupdates}
 }
-elsif (-e "/etc/cron.d/csf_update") {unlink "/etc/cron.d/csf_update"}
+elsif (-e "/etc/cron.d/csf_update")
+{
+	unlink "/etc/cron.d/csf_update"
+}
 
-if (($input{command} eq "--start") or ($input{command} eq "-s") or ($input{command} eq "--restart") or ($input{command} eq "-r") or ($input{command} eq "--restartall") or ($input{command} eq "-ra")) {
-	if ($warning) {print $warning}
-	foreach my $key (keys %config) {
-		my ($insane,$range,$default) = sanity($key,$config{$key});
-		if ($insane) {print "*WARNING* $key sanity check. $key = $config{$key}. Recommended range: $range (Default: $default)\n"}
+# #
+#	Warning › Startup
+# #
+
+if (($input{command} eq "--start") or ($input{command} eq "-s") or ($input{command} eq "--restart") or ($input{command} eq "-r") or ($input{command} eq "--restartall") or ($input{command} eq "-ra"))
+{
+	if ($warning)
+	{
+		print $warning
 	}
-	unless ($config{RESTRICT_SYSLOG}) {print "\n*WARNING* RESTRICT_SYSLOG is disabled. See SECURITY WARNING in /etc/csf/csf.conf.\n"}
+
+	foreach my $key ( keys %config )
+	{
+		my ( $insane,$range,$default ) = sanity( $key,$config{$key} );
+		if ( $insane )
+		{
+			print "*WARNING* $key sanity check. $key = $config{$key}. Recommended range: $range (Default: $default)\n"
+		}
+	}
+
+	unless ( $config{RESTRICT_SYSLOG} )
+	{
+		print "\n*WARNING* RESTRICT_SYSLOG is disabled. See SECURITY WARNING in /etc/csf/csf.conf.\n"
+	}
+
+	# #
+	#	Warning › LF_MODSEC_PERM (Recommended)
+	#	
+	#	Ensure the end-user understands the reprocussions of setting LF_MODSEC_PERM too low.
+	#	Send a warning if setting is below recommended.
+	# #
+
+	my $lfmodsec_threshold_warn = 3600;
+	if ( $config{LF_MODSEC_PERM} && $config{LF_MODSEC_PERM} =~ /^\d+$/ )
+	{
+		if ( $config{LF_MODSEC_PERM} < $lfmodsec_threshold_warn && $config{LF_MODSEC_PERM} > 1 )
+		{
+			print "*WARNING* LF_MODSEC_PERM is set to $config{LF_MODSEC_PERM} seconds.\n";
+			print "This is extremely short and may not effectively block attackers.\n";
+			print "Recommended: \"1\" (permanent) or \"3600\" (1 hour)\n";
+		}
+	}
 }
 
 exit 0;
 
-# end main
-###############################################################################
-# start csflock
-sub csflock {
+# #
+#   csflock › Acquire or release CSF lock
+#	
+#   Manages the csf.lock file to prevent concurrent CSF operations.
+#   When called with "lock", it opens the lockfile and obtains an
+#   exclusive non-blocking lock; otherwise, it releases it.
+#	
+#   @param      lock    string      "lock" to acquire, anything else to release
+#   @return     void
+# #
+
+sub csflock
+{
 	my $lock = shift;
-	if ($lock eq "lock") {
+	if ($lock eq "lock")
+	{
 		sysopen ($CSFLOCKFILE, "/var/lib/csf/csf.lock", O_RDWR | O_CREAT) or die ("Error: Unable to open csf lock file: $!");
 		flock ($CSFLOCKFILE, LOCK_EX | LOCK_NB) or die "Error: csf is being restarted, try again in a moment: $!";
-	} else {
+	}
+	else
+	{
 		close ($CSFLOCKFILE);
 	}
+
 	return;
 }
-# end csflock
-###############################################################################
-# start load_config
-sub load_config {
+
+# #
+#   Loads and initializes all CSF config values, imports optional modules,
+#   prepares blocklists, sets logging/accept modes, and verifies required
+#   system binaries before firewall rules are built.
+#	
+#   @return     void
+# #
+
+sub load_config
+{
 	my $config = ConfigServer::Config->loadconfig();
 	%config = $config->config;
 	my %configsetting = $config->configsetting;
@@ -220,7 +288,8 @@ sub load_config {
 	$ipv6reg = $config->ipv6reg;
 	$warning .= $config->{warning};
 
-	if ($config{CLUSTER_SENDTO} or $config{CLUSTER_RECVFROM}) {
+	if ($config{CLUSTER_SENDTO} or $config{CLUSTER_RECVFROM})
+	{
 		require Crypt::CBC;
 		import Crypt::CBC;
 		require File::Basename;
