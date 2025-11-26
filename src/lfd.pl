@@ -1648,7 +1648,7 @@ while (1)  {
 	}
 	if ($config{LF_USERAGENT}) {
 		$useragenttimeout+=$duration;
-		if ($useragenttimeout >= $config{LF_INTERVAL}) {
+		if ($useragenttimeout >= $config{LF_USERAGENT_INTERVAL}) {
 			$useragenttimeout = 0;
 			undef %useragent;
 		}

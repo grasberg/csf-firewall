@@ -1038,14 +1038,24 @@ sub useragentcheck {
 	my $patterns_ref = shift;
 	my @patterns = @{$patterns_ref};
 	
-	# Combined Log Format: IP - - [date] "request" status size "referer" "user-agent"
-	# Also supports Common variations with User-Agent
+	# Parse Combined Log Format:
+	# Format: IP ident authuser [date] "request" status size "referer" "user-agent"
+	# Regex breakdown:
+	#   ^(\S+)              - IP address (capture group 1)
+	#   \s+\S+              - ident field (usually -)
+	#   \s+\S+              - authuser field (usually -)
+	#   \s+\[[^\]]+\]       - [date/time] in brackets
+	#   \s+"[^"]*"          - "HTTP request"
+	#   \s+\d+              - HTTP status code
+	#   \s+\S+              - response size
+	#   \s+"[^"]*"          - "referer"
+	#   \s+"([^"]*)"        - "user-agent" (capture group 2)
 	if ($line =~ /^(\S+)\s+\S+\s+\S+\s+\[[^\]]+\]\s+"[^"]*"\s+\d+\s+\S+\s+"[^"]*"\s+"([^"]*)"/) {
 		my $ip = $1;
 		my $useragent = $2;
 		$ip =~ s/^::ffff://;
 		
-		# Check User-Agent against each pattern
+		# Check User-Agent against each pattern (case-insensitive)
 		foreach my $pattern (@patterns) {
 			next unless $pattern;
 			if ($useragent =~ /$pattern/i) {
