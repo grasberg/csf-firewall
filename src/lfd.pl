@@ -64,7 +64,7 @@ our ($abuseip, $accept, $apache401timeout, $apache403timeout,
 	 $relaytimeout, $scripttimeout, $slurpreg, $smtptimeout, $sys_syslog,
 	 $syslogcheckcode, $syslogchecktimeout, $sysloggid, $syslogpid,
 	 $systemstatstimeout, $tar, $toomanymatches, $tz, $uidtimeout, $uiip,
-	 $urlget, $version, $messenger1, $messenger2, $messenger3);
+	 $urlget, $useragenttimeout, $version, $messenger1, $messenger2, $messenger3);
 
 our ($LISTLOCK, $IPTABLESLOCK, $PIDFILE);
 
@@ -75,11 +75,11 @@ our (%accounttracking, %adb, %adf, %ads, %apache401, %apache403, %apache404,
 	 %logins, %logintimeout, %logscannerfiles, %messengerips, %messengerports,
 	 %newaccounttracking, %nofiles, %ports, %portscans, %psips, %pskip,
 	 %relayip, %relays, %rtignore, %scripts, %sfile, %skip, %skipfile,
-	 %skipscript, %skipuser, %suignore, %uidignore, %uidscans);
+	 %skipscript, %skipuser, %suignore, %uidignore, %uidscans, %useragent);
 
 our (@cccidrs, @cidrs, @faststart4, @faststart4nat, @faststart6,
      @faststart6nat, @faststartipset, @gcidrs, @ipset, @lfbuf, @lffd, @lfino,
-	 @lfsize, @logignore, @matchfile, @rdns, @suspicious);
+	 @lfsize, @logignore, @matchfile, @rdns, @suspicious, @useragentpatterns);
 
 $pidfile = "/var/run/lfd.pid";
 
@@ -712,6 +712,30 @@ if ($config{IGNORE_ALLOW} and -e "/etc/csf/csf.allow") {
 		if ($@) {logfile("Invalid CIDR in csf.allow: $entry")}
 	}
 }
+if ($config{LF_USERAGENT} and -e "/etc/csf/csf.useragents") {
+	my @entries = slurp("/etc/csf/csf.useragents");
+	foreach my $line (@entries) {
+		if ($line =~ /^Include\s*(.*)$/) {
+			my @incfile = slurp($1);
+			push @entries,@incfile;
+		}
+	}
+	foreach my $line (@entries) {
+		$line =~ s/$cleanreg//g;
+		if ($line eq "") {next}
+		if ($line =~ /^\s*\#|Include/) {next}
+		# Validate regex pattern
+		eval {local $SIG{__DIE__} = undef; "" =~ /$line/};
+		if ($@) {
+			logfile("Invalid regex pattern in csf.useragents: $line");
+			next;
+		}
+		push @useragentpatterns, $line;
+	}
+	if (@useragentpatterns) {
+		logfile("Loaded " . scalar(@useragentpatterns) . " User-Agent patterns from csf.useragents");
+	}
+}
 
 if ($config{LF_HTACCESS} or $config{LF_APACHE_404} or $config{LF_APACHE_403} or $config{LF_APACHE_401} or $config{LF_QOS} or $config{LF_SYMLINK}) {&globlog("HTACCESS_LOG")}
 if ($config{LF_MODSEC} or $config{LF_CXS}) {&globlog("MODSEC_LOG")}
@@ -736,6 +760,7 @@ if ($config{LF_FTPD}) {&globlog("FTPD_LOG")}
 if ($config{LF_BIND}) {&globlog("BIND_LOG")}
 if ($config{LF_CPANEL_ALERT}) {&globlog("CPANEL_ACCESSLOG")}
 if ($config{SYSLOG_CHECK} and $sys_syslog) {&globlog("SYSLOG_LOG")}
+if ($config{LF_USERAGENT}) {&globlog("LF_USERAGENT_LOG")}
 
 if ($config{PS_INTERVAL} or $config{ST_ENABLE} or $config{UID_INTERVAL}) {&globlog("IPTABLES_LOG")}
 if ($config{LF_SU_EMAIL_ALERT}) {&globlog("SU_LOG")}
@@ -1621,6 +1646,13 @@ while (1)  {
 			undef %apache401;
 		}
 	}
+	if ($config{LF_USERAGENT}) {
+		$useragenttimeout+=$duration;
+		if ($useragenttimeout >= $config{LF_INTERVAL}) {
+			$useragenttimeout = 0;
+			undef %useragent;
+		}
+	}
 	if ($config{RT_RELAY_ALERT} or $config{RT_AUTHRELAY_ALERT} or $config{RT_POPRELAY_ALERT} or $config{RT_LOCALRELAY_ALERT} or $config{RT_LOCALHOSTRELAY_ALERT}) {
 		$relaytimeout+=$duration;
 		if ($relaytimeout >= 3600) {
@@ -2231,6 +2263,20 @@ sub dochecks {
 			if ($apache401{$ip}{count} > $config{LF_APACHE_401}) {
 				&disable401($ip,$apache401{$ip}{text});
 				delete $apache401{$ip};
+			}
+		}
+	}
+
+	if ($config{LF_USERAGENT} and @useragentpatterns and ($globlogs{LF_USERAGENT_LOG}{$lgfile})) {
+		my ($ip, $ua, $pattern) = ConfigServer::RegexMain::useragentcheck($line, \@useragentpatterns);
+		if ($ip and !&ignoreip($ip)) {
+			$useragent{$ip}{count}++;
+			$useragent{$ip}{useragent} = $ua;
+			$useragent{$ip}{pattern} = $pattern;
+			$useragent{$ip}{text} .= "$line\n";
+			if ($useragent{$ip}{count} >= $config{LF_USERAGENT}) {
+				&disableuseragent($ip, $useragent{$ip}{text}, $useragent{$ip}{useragent}, $useragent{$ip}{pattern}, $useragent{$ip}{count});
+				delete $useragent{$ip};
 			}
 		}
 	}
@@ -3250,6 +3296,56 @@ sub disable401 {
 	return;
 }
 # end disable401
+###############################################################################
+# start disableuseragent
+sub disableuseragent {
+	my $ip = shift;
+	my $text = shift;
+	my $useragent = shift;
+	my $pattern = shift;
+	my $count = shift;
+
+	$SIG{CHLD} = 'IGNORE';
+	unless (defined ($childpid = fork)) {
+		&cleanup(__LINE__,"*Error* cannot fork: $!");
+	} 
+	$forks{$childpid} = 1;
+	unless ($childpid) {
+		my $timer = time;
+		if ($config{DEBUG} >= 3) {$timer = &timer("start","disableuseragent",$timer)}
+
+		my $tip = iplookup($ip);
+		my $perm = 1;
+		if ($config{LF_USERAGENT_PERM} > 1) {$perm = 0}
+		if (&ipblock($perm,"$tip, suspicious User-Agent detected [$useragent] matching pattern [$pattern]",$ip,$ports{useragent},"in",$config{LF_USERAGENT_PERM},0,"","LF_USERAGENT")) {
+			if ($config{DEBUG} >= 1) {logfile("debug: $ip already blocked")}
+		} else {
+			if ($config{LF_USERAGENT_ALERT}) {
+				$0 = "lfd - (child) sending User-Agent alert email for $ip";
+
+				my @alert = slurp("/usr/local/csf/tpl/useragentalert.txt");
+				my @message;
+				foreach my $line (@alert) {
+					$line =~ s/\[ip\]/$tip/ig;
+					$line =~ s/\[count\]/$count/ig;
+					$line =~ s/\[useragent\]/$useragent/ig;
+					$line =~ s/\[pattern\]/$pattern/ig;
+					$line =~ s/\[text\]/$text/ig;
+					push @message, $line;
+				}
+				ConfigServer::Sendmail::relay("", "", @message);
+
+				logfile("User-Agent alert email sent for $ip");
+			}
+		}
+
+		if ($config{DEBUG} >= 3) {$timer = &timer("stop","disableuseragent",$timer)}
+		$0 = "lfd - child closing";
+		exit;
+	}
+	return;
+}
+# end disableuseragent
 ###############################################################################
 # start logindisable
 sub logindisable {

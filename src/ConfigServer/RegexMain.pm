@@ -1032,5 +1032,32 @@ sub syslogcheckline {
 }
 # end syslogcheckline
 ###############################################################################
+# start useragentcheck
+sub useragentcheck {
+	my $line = shift;
+	my $patterns_ref = shift;
+	my @patterns = @{$patterns_ref};
+	
+	# Combined Log Format: IP - - [date] "request" status size "referer" "user-agent"
+	# Also supports Common variations with User-Agent
+	if ($line =~ /^(\S+)\s+\S+\s+\S+\s+\[[^\]]+\]\s+"[^"]*"\s+\d+\s+\S+\s+"[^"]*"\s+"([^"]*)"/) {
+		my $ip = $1;
+		my $useragent = $2;
+		$ip =~ s/^::ffff://;
+		
+		# Check User-Agent against each pattern
+		foreach my $pattern (@patterns) {
+			next unless $pattern;
+			if ($useragent =~ /$pattern/i) {
+				if (checkip(\$ip)) {
+					return ($ip, $useragent, $pattern);
+				}
+			}
+		}
+	}
+	return;
+}
+# end useragentcheck
+###############################################################################
 
 1;
