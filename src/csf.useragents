@@ -1,0 +1,92 @@
+# #
+#   @app                ConfigServer Firewall & Security (CSF)
+#                       Login Failure Daemon (LFD)
+#   @website            https://configserver.dev
+#   @docs               https://docs.configserver.dev
+#   @download           https://download.configserver.dev
+#   @repo               https://github.com/Aetherinox/csf-firewall
+#   @copyright          Copyright (C) 2025-2026 Aetherinox
+#                       Copyright (C) 2006-2025 Jonathan Michaelson
+#                       Copyright (C) 2006-2025 Way to the Web Ltd.
+#   @license            GPLv3
+#   @updated            11.26.2025
+#   
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 3 of the License, or (at
+#   your option) any later version.
+#   
+#   This program is distributed in the hope that it will be useful, but
+#   WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+#   General Public License for more details.
+#   
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, see <https://www.gnu.org/licenses>.
+# #
+
+# #
+#   User-Agent Blocking
+#
+#   This file contains a list of User-Agent patterns to block. Each pattern
+#   is a Perl-compatible regular expression that will be matched against the
+#   User-Agent header in HTTP access log entries.
+#
+#   When a match is found, the IP address will be blocked according to the
+#   LF_USERAGENT settings in csf.conf.
+#
+#   Note: The matching is case-insensitive.
+#
+#   Format: One pattern per line
+#   
+#   Lines starting with # are comments
+#   Blank lines are ignored
+#
+#   Examples:
+#       ^BadBot
+#       malicious.*crawler
+#       ^$
+#       (curl|wget|python-requests)
+#
+#   WARNING: Be careful with patterns. Overly broad patterns can block
+#   legitimate users. Test patterns thoroughly before deployment.
+#
+#   Common malicious User-Agents (uncomment to enable):
+# #
+
+# Empty User-Agent (often used by scanners)
+# ^$
+
+# Generic script bots
+# ^-$
+
+# Vulnerability scanners
+# nikto
+# sqlmap
+# nmap
+# masscan
+# zgrab
+
+# Aggressive crawlers (uncomment with caution - may affect legitimate bots)
+# AhrefsBot
+# SemrushBot
+# DotBot
+# MJ12bot
+
+# Known malicious bots
+# Xenu Link Sleuth
+# TurnitinBot
+
+# Chinese crawler blocking (use with caution)
+# Baiduspider
+# Sogou
+
+# Fake Google bots (careful - verify these are actually fake)
+# Googlebot.*Windows
+
+# libwww-perl (common in automated attacks)
+# libwww-perl
+
+# Python requests without proper identification
+# ^python-requests/
+

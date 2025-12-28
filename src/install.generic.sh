@@ -171,6 +171,9 @@ fi
 if [ ! -e "/etc/csf/csf.signore" ]; then
 	cp -avf csf.signore /etc/csf/.
 fi
+if [ ! -e "/etc/csf/csf.useragents" ]; then
+	cp -avf csf.useragents /etc/csf/.
+fi
 if [ ! -e "/etc/csf/csf.suignore" ]; then
 	cp -avf csf.suignore /etc/csf/.
 fi
@@ -258,6 +261,9 @@ if [ ! -e "/usr/local/csf/tpl/consolealert.txt" ]; then
 fi
 if [ ! -e "/usr/local/csf/tpl/uialert.txt" ]; then
 	cp -avf uialert.txt /usr/local/csf/tpl/.
+fi
+if [ ! -e "/usr/local/csf/tpl/useragentalert.txt" ]; then
+	cp -avf useragentalert.txt /usr/local/csf/tpl/.
 fi
 if [ ! -e "/usr/local/csf/tpl/cpanelalert.txt" ]; then
 	cp -avf cpanelalert.txt /usr/local/csf/tpl/.
